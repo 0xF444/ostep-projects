@@ -1,5 +1,5 @@
 #include "Arena.h"
-
+uintptr_t AlignForward_Internal(uintptr_t, size_t);
 ARENA_RETURN_CODE ArenaInit(Arena_t *arena)
 {
     arena->mem_block_base = (char *)malloc(ARENA_INITIAL_SIZE);
@@ -13,7 +13,7 @@ ARENA_RETURN_CODE ArenaInit(Arena_t *arena)
 
 void *ArenaAllocAligned(Arena_t *arena, size_t type_size, size_t align)
 {
-    uintptr_t aligned_current_addr = AlignForward_Internal((arena->mem_block_base + arena->current_pos) + type_size, ARENA_DEFAULT_ALIGNMENT);
+    uintptr_t aligned_current_addr = AlignForward_Internal(((uintptr_t)(arena->mem_block_base) + arena->current_pos) + type_size, ARENA_DEFAULT_ALIGNMENT);
     if (aligned_current_addr >= arena->mem_block_end) // Check if current_pos has overcame the buffer.
     {
         size_t current_size = arena->mem_block_end - arena->mem_block_base;
