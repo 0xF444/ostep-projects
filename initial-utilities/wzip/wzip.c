@@ -24,7 +24,7 @@ int RunLengthEncodeFile(CStr filename)
         memset(out_filename, 0, strlen(filename) + strlen(".rle"));
         strncpy(out_filename, filename, strlen(filename));
         strncat(out_filename, ".rle", 4);
-
+	/* TODO: Concatenate file content into one buffer */
         char *intermediate_buf = (char *)malloc(CHUNK_SIZE);
         FILE *out_fp = fopen(out_filename, "wb");
         int bytes_read = 0;
