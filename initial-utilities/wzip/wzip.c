@@ -14,11 +14,12 @@ typedef struct __attribute__((packed)) character_occurrence
 int RunLengthEncodeFile(int argc, CStr *argv)
 {
     struct stat st;
+    /* Array definitions have argc - 1 because we don't want argv[0] */
     uint64_t sizes[argc - 1], total_size = 0;
     FILE *in_fds[argc - 1];
     for (int i = 1; i < argc; i++)
     {
-        /* Loop 1: read in the files and calculate their sizes. */
+        /* Loop 1: read in the files and calculate their sizes */
         in_fds[i - 1] = fopen(argv[i], "r");
         if (!in_fds[i - 1])
         {
