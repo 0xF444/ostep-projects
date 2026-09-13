@@ -11,6 +11,8 @@ typedef struct __attribute__((packed)) byte_occur
     uint32_t count;
     char pivot;
 } ByteOccur;
+
+/* TODO: Refactor RunLengthEncodeFile to split up it into smaller functions */
 int RunLengthEncodeFile(int argc, CStr *argv)
 {
     struct stat st;
@@ -38,8 +40,6 @@ int RunLengthEncodeFile(int argc, CStr *argv)
         fread(intermediate_buf + file_offset, sizes[i - 1], 1, in_fds[i - 1]);
         file_offset += sizes[i - 1];
     }
-
-    FILE *out_fd = fopen("fileout.rle", "wb");
     for (uint64_t i = 0; i < total_size;)
     {
         /* Loop 3: Logic of RLE */
@@ -49,7 +49,7 @@ int RunLengthEncodeFile(int argc, CStr *argv)
         {
             byte_pivot.count++;
         }
-        fwrite(&byte_pivot, sizeof(byte_pivot), 1, out_fd); // Change file descriptor here
+        fwrite(&byte_pivot, sizeof(byte_pivot), 1, stdout); // Change file descriptor here
         i += (byte_pivot.count);
     }
     for (int i = 1; i < argc; i++)
@@ -58,7 +58,6 @@ int RunLengthEncodeFile(int argc, CStr *argv)
         fclose(in_fds[i - 1]);
     }
 
-    fclose(out_fd);
     free(intermediate_buf);
     return 0;
 }
