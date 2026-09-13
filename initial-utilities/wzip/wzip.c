@@ -6,11 +6,11 @@
 #include "../lib/Arena.h"
 #include <sys/stat.h>
 #define CHUNK_SIZE 8192
-typedef struct __attribute__((packed)) character_occurrence
+typedef struct __attribute__((packed)) byte_occur
 {
     uint32_t count;
     char pivot;
-} CharOccur;
+} ByteOccur;
 int RunLengthEncodeFile(int argc, CStr *argv)
 {
     struct stat st;
@@ -44,7 +44,7 @@ int RunLengthEncodeFile(int argc, CStr *argv)
     {
         /* Loop 3: Logic of RLE */
 
-        CharOccur byte_pivot = {.pivot = intermediate_buf[i], .count = 0};
+        ByteOccur byte_pivot = {.pivot = intermediate_buf[i], .count = 0};
         for (size_t j = i; j < total_size && intermediate_buf[j] == byte_pivot.pivot; j++)
         {
             byte_pivot.count++;
