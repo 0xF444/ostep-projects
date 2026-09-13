@@ -4,53 +4,62 @@
 #include <ctype.h>
 #include "../lib/String.h"
 #include "../lib/Arena.h"
+#include <sys/stat.h>
 #define CHUNK_SIZE 8192
 typedef struct __attribute__((packed)) character_occurrence
 {
     uint32_t count;
     char pivot;
 } CharOccur;
-int RunLengthEncodeFile(CStr filename)
+int RunLengthEncodeFile(int argc, CStr *argv)
 {
-    FILE *in_fp = fopen(filename, "r");
-    if (!in_fp)
+    struct stat st;
+    uint64_t sizes[argc - 1], total_size = 0;
+    FILE *in_fds[argc - 1];
+    for (int i = 1; i < argc; i++)
     {
-        return 1;
-    }
-    else
-    {
-
-        char *out_filename = (char *)malloc(strlen(filename) + strlen(".rle") + 1);
-        memset(out_filename, 0, strlen(filename) + strlen(".rle"));
-        strncpy(out_filename, filename, strlen(filename));
-        strncat(out_filename, ".rle", 4);
-	/* TODO: Concatenate file content into one buffer */
-        char *intermediate_buf = (char *)malloc(CHUNK_SIZE);
-        FILE *out_fp = fopen(out_filename, "wb");
-        int bytes_read = 0;
-        while (((bytes_read = fread(intermediate_buf, sizeof(char), CHUNK_SIZE, in_fp)) > 0)) // Chunking loop for better reading into the buffer.
+        /* Loop 1: read in the files and calculate their sizes. */
+        in_fds[i - 1] = fopen(argv[i], "r");
+        if (!in_fds[i - 1])
         {
-            for (int i = 0; i < bytes_read;)
-            {
-                if (!isalnum((unsigned char)intermediate_buf[i]))
-                {
-                    i++; // Ignore noncharacters because not advancing them will cause you to stop at them.
-                    continue;
-                }
-                CharOccur character_pivot = {.pivot = intermediate_buf[i], .count = 0};
-                for (size_t j = i; intermediate_buf[j] == character_pivot.pivot && isalpha(intermediate_buf[j]); j++)
-                {
-                    character_pivot.count++;
-                }
-                size_t written = fwrite(&character_pivot, sizeof(character_pivot), 1, stdout);
-                i += (character_pivot.count);
-            }
+            exit(1);
         }
-        fclose(out_fp);
-        free(out_filename);
-        free(intermediate_buf);
+        stat(argv[i], &st);
+        sizes[i - 1] = st.st_size;
+        total_size += (uint64_t)st.st_size;
     }
-    fclose(in_fp);
+    char *intermediate_buf = (char *)malloc(total_size);
+
+    uint64_t file_offset = 0;
+    for (int i = 1; i < argc; i++)
+    {
+        /* Loop 2: read every file into the intermediate buffer */
+        fread(intermediate_buf + file_offset, sizes[i - 1], 1, in_fds[i - 1]);
+        file_offset += sizes[i - 1];
+    }
+
+    FILE *out_fd = fopen("fileout.rle", "wb");
+    for (uint64_t i = 0; i < total_size;)
+    {
+        /* Loop 3: Logic of RLE */
+
+        CharOccur byte_pivot = {.pivot = intermediate_buf[i], .count = 0};
+        for (size_t j = i; j < total_size && intermediate_buf[j] == byte_pivot.pivot; j++)
+        {
+            byte_pivot.count++;
+        }
+        fwrite(&byte_pivot, sizeof(byte_pivot), 1, out_fd); // Change file descriptor here
+        i += (byte_pivot.count);
+    }
+    for (int i = 1; i < argc; i++)
+    {
+        /* Loop 3: Close all file descriptors*/
+        fclose(in_fds[i - 1]);
+    }
+
+    fclose(out_fd);
+    free(intermediate_buf);
+    return 0;
 }
 int main(int argc, char **argv)
 {
@@ -59,14 +68,11 @@ int main(int argc, char **argv)
     if (argc < 2)
     {
         printf("wzip: file1 [file2 ...]\n");
+        exit(1);
     }
     else
     {
-        for (size_t i = 1; i < argc; i++)
-        {
-            /* TODO: Make it concat the files passed in and treat it as ONE source */
-            RunLengthEncodeFile(argv[i]);
-        }
+        RunLengthEncodeFile(argc, argv);
     }
 
     return 0;
