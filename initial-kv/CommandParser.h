@@ -11,7 +11,7 @@ enum COMMAND_INDEX
 typedef struct command
 {
     char instruction;
-    int key;
+    int key; // Change this field to a char, the hash function takes in a string already.
     char *value;
 } InternalCommand_t;
 
