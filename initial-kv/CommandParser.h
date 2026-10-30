@@ -21,7 +21,7 @@ typedef struct
     size_t num_of_commands;
 } Command_t;
 
-Command_t *ParseCommands(int argc, char **argv)
+Command_t *parse_commands(int argc, char **argv)
 {
     InternalCommand_t *commands = (InternalCommand_t *)malloc((argc - 1) * sizeof(InternalCommand_t));
     Command_t *commands_returned = (Command_t *)malloc(sizeof(Command_t));
