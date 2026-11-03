@@ -59,22 +59,22 @@ typedef struct hashtable
 } HashTable;
 Fnv64_t calculate_hash(u32 key)
 {
-    char *key_str;
+    char key_str[16];
     return fnv_64a_str(itoa(key, key_str, 10), FNV1A_64_INIT);
 }
-HashTable *hash_table_create(size_t size)
+HashTable *hash_table_create(size_t num_of_slots_required)
 {
     HashTable *ht = (HashTable *)malloc((sizeof(HashTable))); // this is a structure to be returned
-    if (size != 0)
+    if (num_of_slots_required != 0)
     {
-        ht->buf = (HashTableEntry_t *)calloc(size, sizeof(HashTableEntry_t)); // starts zeroed out
+        ht->buf = (HashTableEntry_t *)calloc(num_of_slots_required, sizeof(*ht->buf)); // starts zeroed out
         ht->count = 0;
-        ht->capacity_in_bytes = sizeof(HashTableEntry_t) * size;
+        ht->capacity_in_bytes = sizeof(*ht->buf) * num_of_slots_required;
     }
     else
     {
-        ht->buf = (HashTableEntry_t *)calloc(HASH_TABLE_INIT_SIZE, sizeof(HashTableEntry_t *));
-        ht->capacity_in_bytes = sizeof(HashTableEntry_t *) * size;
+        ht->buf = (HashTableEntry_t *)calloc(HASH_TABLE_INIT_SIZE, sizeof(*ht->buf));
+        ht->capacity_in_bytes = sizeof(*ht->buf) * HASH_TABLE_INIT_SIZE;
         ht->count = 0;
     }
     ht->max_entry_slots = ht->capacity_in_bytes / sizeof(*ht->buf);
@@ -88,7 +88,7 @@ s32 hash_table_destroy(HashTable *ht)
 }
 u32 internal_threshold_check_hash_table_size(HashTable *ht)
 {
-    if ((ht->capacity_in_bytes) * 3 == ((ht->count) + 1) * 4)
+    if (((ht->count) + 1) * 4 >= (ht->max_entry_slots) * 3)
     {
         return 1;
     }
@@ -101,25 +101,28 @@ s64 internal_find_duplicate_entry(HashTable *ht, HashTableEntry_t entry)
     {
         if (ht->buf[i].key == entry.key && ht->buf[i].state == SLOT_OCCUPIED)
             return i;
-        else
-            return -1;
     }
+    return -1;
 }
-s64 internal_resize_hash_table(HashTable *ht)
+s64 internal_resize_hash_table(HashTable *old_ht)
 {
-    HashTableEntry_t *new_buf = calloc(sizeof(*ht->buf), 2 * ht->capacity_in_bytes);
-
-    for (size_t i = 0; i < ht->max_entry_slots; i++)
+    // TODO: figure out a way to rehash old entries to the new buffer
+    HashTable *new_ht = hash_table_create(2 * old_ht->max_entry_slots);
+    for (size_t i = 0; i < old_ht->max_entry_slots; i++)
     {
-        if(ht->buf[i].state = SLOT_OCCUPIED)
+        if (old_ht->buf[i].state == SLOT_OCCUPIED)
+        {
+            insert_into_hash_table(new_ht, old_ht->buf[i].key, old_ht->buf[i].value);
+        }
     }
-
-    ht->buf = new_buf;
+    free(old_ht->buf);
+    *old_ht = *new_ht;
+    free(new_ht);
 }
-s32 insert_into_hash_table(HashTable *ht, int key, char *value, u8 resize_flag)
+s32 insert_into_hash_table(HashTable *ht, int key, char *value)
 {
 
-    if (internal_threshold_check_hash_table_size(ht) && resize_flag)
+    if (internal_threshold_check_hash_table_size(ht))
     {
         internal_resize_hash_table(ht);
     }
@@ -174,4 +177,39 @@ s32 insert_into_hash_table(HashTable *ht, int key, char *value, u8 resize_flag)
     }
     return -1;
 }
-s32 get_from_hash_table() {}
+char *get_from_hash_table(HashTable *ht, int key)
+{
+    Fnv64_t input_hash = calculate_hash(key);
+    usize target_indx = input_hash % ht->max_entry_slots;
+    for (size_t i = 0, j = target_indx; i < ht->max_entry_slots; i++, j = (j + 1) % ht->max_entry_slots)
+    {
+        if (ht->buf[j].state == SLOT_OCCUPIED && ht->buf[j].stored_hash == input_hash && ht->buf[j].key == key)
+        {
+            return ht->buf[j].value;
+        }
+        else if (ht->buf[j].state == SLOT_EMPTY) // it was never used to begin with, the key cannot exist throughout the sequence
+        {
+            return NULL;
+        }
+    }
+    return NULL;
+}
+s32 delete_from_hash_table(HashTable *ht, int key)
+{
+    Fnv64_t input_hash = calculate_hash(key);
+    usize target_indx = input_hash % ht->max_entry_slots;
+    for (size_t i = 0, j = target_indx; i < ht->max_entry_slots; i++, j = (j + 1) % ht->max_entry_slots)
+    {
+        if (ht->buf[j].state == SLOT_OCCUPIED && ht->buf[j].stored_hash == input_hash && ht->buf[j].key == key) // the value exists
+        {
+            ht->buf[j].state = SLOT_DELETED;
+            ht->count--;
+            return 0;
+        }
+        else if (ht->buf[j].state == SLOT_EMPTY) // it was never used to begin with, the key cannot exist throughout the sequence
+        {
+            return -1;
+        }
+    }
+    return NULL;
+}
